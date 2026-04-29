@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Pro - AI Agent Dashboard</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+                    <defs>
+                        <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#667eea"/>
+                            <stop offset="100%" style="stop-color:#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M20 4 L8 16 L14 16 L14 28 L26 28 L26 16 L32 16 Z" fill="url(#logo-grad)" opacity="0.3"/>
+                    <path d="M20 8 L12 18 L16 18 L16 24 L24 24 L24 18 L28 18 Z" fill="url(#logo-grad)"/>
+                    <circle cx="20" cy="12" r="3" fill="#667eea" opacity="0.8"/>
+                </svg>
+                <span class="logo-text">Hermes Pro</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="chat">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span>Chat</span>
+                </a>
+                <a href="#" class="nav-item" data-page="soultrace">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                    </svg>
+                    <span>SoulTrace</span>
+                </a>
+                <a href="#" class="nav-item" data-page="models">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                        <polyline points="2 17 12 22 22 17"/>
+                        <polyline points="2 12 12 17 22 12"/>
+                    </svg>
+                    <span>Models</span>
+                </a>
+                <a href="#" class="nav-item" data-page="skills">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    <span>Skills</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="version-badge">v2.0.0</div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard</h1>
+                    <p class="page-subtitle">System overview and real-time metrics</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="stat-sessions">0</span>
+                            <span class="stat-label">Sessions</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="stat-messages">0</span>
+                            <span class="stat-label">Messages</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                                <polyline points="2 17 12 22 22 17"/>
+                                <polyline points="2 12 12 17 22 12"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="stat-models">0</span>
+                            <span class="stat-label">Models</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="stat-uptime">0h</span>
+                            <span class="stat-label">Uptime</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- Gateway Status -->
+                    <div class="glass-card gateway-card">
+                        <h3 class="card-title">Gateway Status</h3>
+                        <div class="gateway-status">
+                            <div class="status-indicator online">
+                                <span class="pulse-dot"></span>
+                                <span>Connected</span>
+                            </div>
+                            <div class="gateway-info">
+                                <div class="info-row">
+                                    <span class="info-label">Endpoint</span>
+                                    <span class="info-value" id="gateway-endpoint">ws://localhost:8765</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Latency</span>
+                                    <span class="info-value" id="gateway-latency">-- ms</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Active Connections</span>
+                                    <span class="info-value" id="gateway-connections">1</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Models -->
+                    <div class="glass-card models-list-card">
+                        <h3 class="card-title">Active Models</h3>
+                        <div id="active-models-list" class="active-models-list">
+                            <div class="model-item">
+                                <span class="model-dot online"></span>
+                                <span class="model-name">Hermes-3-Llama-3.1-70B</span>
+                                <span class="model-tier tier-1">Tier 1</span>
+                            </div>
+                            <div class="model-item">
+                                <span class="model-dot online"></span>
+                                <span class="model-name">Qwen2.5-72B-Instruct</span>
+                                <span class="model-tier tier-2">Tier 2</span>
+                            </div>
+                            <div class="model-item">
+                                <span class="model-dot offline"></span>
+                                <span class="model-name">Llama-3.3-70B</span>
+                                <span class="model-tier tier-3">Tier 3</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Metrics -->
+                    <div class="glass-card metrics-card">
+                        <h3 class="card-title">System Metrics</h3>
+                        <div class="metrics-list">
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-label">CPU Usage</span>
+                                    <span class="metric-value" id="cpu-value">23%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill cpu" id="cpu-bar" style="width: 23%"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-label">Memory</span>
+                                    <span class="metric-value" id="memory-value">4.2 GB / 16 GB</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill memory" id="memory-bar" style="width: 26%"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-label">Disk</span>
+                                    <span class="metric-value" id="disk-value">128 GB / 512 GB</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill disk" id="disk-bar" style="width: 25%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Page -->
+            <div id="page-chat" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">Chat</h1>
+                    <p class="page-subtitle">Interact with Hermes AI Agent</p>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-model-info">
+                        <span class="model-badge">Hermes-3-Llama-3.1-70B</span>
+                        <span class="model-status online">● Online</span>
+                    </div>
+
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message assistant">
+                            <div class="message-avatar">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
+                            </div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="message-sender">Hermes</span>
+                                    <span class="message-time">Just now</span>
+                                </div>
+                                <div class="message-text">Hello! I'm Hermes, your AI assistant. How can I help you today?</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <span class="typing-text">Hermes is thinking...</span>
+                    </div>
+
+                    <div class="chat-input-area">
+                        <textarea id="chat-input" placeholder="Type your message..." rows="1"></textarea>
+                        <button id="send-btn" class="send-button" onclick="sendMessage()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SoulTrace Page -->
+            <div id="page-soultrace" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">SoulTrace</h1>
+                    <p class="page-subtitle">Discover your AI personality archetype</p>
+                </div>
+
+                <div class="soultrace-container">
+                    <!-- Start Card -->
+                    <div class="glass-card soultrace-start-card" id="soultrace-start">
+                        <div class="soultrace-hero">
+                            <div class="soultrace-icon">
+                                <svg viewBox="0 0 64 64" fill="none">
+                                    <defs>
+                                        <linearGradient id="soul-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#667eea"/>
+                                            <stop offset="50%" style="stop-color:#764ba2"/>
+                                            <stop offset="100%" style="stop-color:#43e97b"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <circle cx="32" cy="32" r="28" stroke="url(#soul-grad)" stroke-width="2" fill="none"/>
+                                    <circle cx="32" cy="32" r="20" stroke="url(#soul-grad)" stroke-width="1.5" fill="none" opacity="0.6"/>
+                                    <circle cx="32" cy="32" r="12" stroke="url(#soul-grad)" stroke-width="1" fill="none" opacity="0.3"/>
+                                    <circle cx="32" cy="32" r="4" fill="url(#soul-grad)"/>
+                                </svg>
+                            </div>
+                            <h2>SoulTrace Assessment</h2>
+                            <p>Answer a series of questions to discover your unique AI personality archetype based on the five colors of intelligence.</p>
+                            <button class="btn-primary" onclick="startAssessment()">Begin Assessment</button>
+                        </div>
+                    </div>
+
+                    <!-- Question Display -->
+                    <div class="glass-card soultrace-question-card" id="soultrace-question" style="display: none;">
+                        <div class="question-progress">
+                            <div class="progress-text">Question <span id="question-current">1</span> of <span id="question-total">10</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill soultrace" id="question-progress-bar" style="width: 10%"></div>
+                            </div>
+                        </div>
+                        <div class="question-display">
+                            <h3 id="question-text">Loading question...</h3>
+                        </div>
+                        <div class="scale-buttons">
+                            <button class="scale-btn" onclick="handleAnswer(1)">
+                                <span class="scale-num">1</span>
+                                <span class="scale-label">Strongly Disagree</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(2)">
+                                <span class="scale-num">2</span>
+                                <span class="scale-label">Disagree</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(3)">
+                                <span class="scale-num">3</span>
+                                <span class="scale-label">Slightly Disagree</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(4)">
+                                <span class="scale-num">4</span>
+                                <span class="scale-label">Neutral</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(5)">
+                                <span class="scale-num">5</span>
+                                <span class="scale-label">Slightly Agree</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(6)">
+                                <span class="scale-num">6</span>
+                                <span class="scale-label">Agree</span>
+                            </button>
+                            <button class="scale-btn" onclick="handleAnswer(7)">
+                                <span class="scale-num">7</span>
+                                <span class="scale-label">Strongly Agree</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Results Display -->
+                    <div class="glass-card soultrace-result-card" id="soultrace-result" style="display: none;">
+                        <h2 class="result-title">Your SoulTrace Result</h2>
+                        <div class="result-archetype" id="result-archetype">The Architect</div>
+                        <div class="result-description" id="result-description">Your personality archetype description will appear here.</div>
+                        
+                        <div class="result-charts">
+                            <div class="radar-chart-container">
+                                <canvas id="radar-chart" width="300" height="300"></canvas>
+                            </div>
+                            <div class="color-distribution">
+                                <h3>Color Distribution</h3>
+                                <div class="color-bars" id="color-bars">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="result-actions">
+                            <button class="btn-primary" onclick="startAssessment()">Retake Assessment</button>
+                            <a href="#" id="result-link" class="btn-secondary" target="_blank">View Full Report</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Page -->
+            <div id="page-models" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">Models</h1>
+                    <p class="page-subtitle">Available AI models and their configurations</p>
+                </div>
+
+                <div class="models-grid" id="models-grid">
+                    <div class="glass-card model-card">
+                        <div class="model-card-header">
+                            <span class="model-card-tier tier-1">Tier 1</span>
+                            <span class="model-card-status online">● Active</span>
+                        </div>
+                        <h3 class="model-card-name">Hermes-3-Llama-3.1-70B</h3>
+                        <p class="model-card-provider">Nous Research</p>
+                        <div class="model-card-specs">
+                            <div class="spec-item">
+                                <span class="spec-label">Parameters</span>
+                                <span class="spec-value">70B</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Context</span>
+                                <span class="spec-value">128K</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Latency</span>
+                                <span class="spec-value">~2.1s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card model-card">
+                        <div class="model-card-header">
+                            <span class="model-card-tier tier-2">Tier 2</span>
+                            <span class="model-card-status online">● Active</span>
+                        </div>
+                        <h3 class="model-card-name">Qwen2.5-72B-Instruct</h3>
+                        <p class="model-card-provider">Alibaba Cloud</p>
+                        <div class="model-card-specs">
+                            <div class="spec-item">
+                                <span class="spec-label">Parameters</span>
+                                <span class="spec-value">72B</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Context</span>
+                                <span class="spec-value">128K</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Latency</span>
+                                <span class="spec-value">~2.4s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card model-card">
+                        <div class="model-card-header">
+                            <span class="model-card-tier tier-3">Tier 3</span>
+                            <span class="model-card-status offline">● Standby</span>
+                        </div>
+                        <h3 class="model-card-name">Llama-3.3-70B</h3>
+                        <p class="model-card-provider">Meta AI</p>
+                        <div class="model-card-specs">
+                            <div class="spec-item">
+                                <span class="spec-label">Parameters</span>
+                                <span class="spec-value">70B</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Context</span>
+                                <span class="spec-value">128K</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Latency</span>
+                                <span class="spec-value">~1.8s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card model-card">
+                        <div class="model-card-header">
+                            <span class="model-card-tier tier-4">Tier 4</span>
+                            <span class="model-card-status offline">● Offline</span>
+                        </div>
+                        <h3 class="model-card-name">Mistral-7B-Instruct</h3>
+                        <p class="model-card-provider">Mistral AI</p>
+                        <div class="model-card-specs">
+                            <div class="spec-item">
+                                <span class="spec-label">Parameters</span>
+                                <span class="spec-value">7B</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Context</span>
+                                <span class="spec-value">32K</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Latency</span>
+                                <span class="spec-value">~0.8s</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Skills Page -->
+            <div id="page-skills" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">Skills</h1>
+                    <p class="page-subtitle">Agent capabilities and tool integrations</p>
+                </div>
+
+                <div class="skills-grid">
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"/>
+                                <polyline points="8 6 2 12 8 18"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">Code Execution</h3>
+                        <p class="skill-desc">Run Python, JavaScript, and shell commands in a sandboxed environment</p>
+                        <span class="skill-status enabled">Enabled</span>
+                    </div>
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">Web Search</h3>
+                        <p class="skill-desc">Search the internet for real-time information and current events</p>
+                        <span class="skill-status enabled">Enabled</span>
+                    </div>
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">File Operations</h3>
+                        <p class="skill-desc">Read, write, and manage files in the workspace</p>
+                        <span class="skill-status enabled">Enabled</span>
+                    </div>
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                <line x1="8" y1="21" x2="16" y2="21"/>
+                                <line x1="12" y1="17" x2="12" y2="21"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">Browser Control</h3>
+                        <p class="skill-desc">Navigate websites, extract data, and interact with web pages</p>
+                        <span class="skill-status disabled">Disabled</span>
+                    </div>
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">SoulTrace</h3>
+                        <p class="skill-desc">AI personality assessment and archetype analysis</p>
+                        <span class="skill-status enabled">Enabled</span>
+                    </div>
+                    <div class="glass-card skill-card">
+                        <div class="skill-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            </svg>
+                        </div>
+                        <h3 class="skill-name">Memory System</h3>
+                        <p class="skill-desc">Persistent memory and context management across sessions</p>
+                        <span class="skill-status enabled">Enabled</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="page-settings" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">Settings</h1>
+                    <p class="page-subtitle">Configure your Hermes experience</p>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="glass-card settings-card">
+                        <h3 class="card-title">General</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Dark Mode</span>
+                                <span class="setting-desc">Use dark theme interface</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Notifications</span>
+                                <span class="setting-desc">Enable desktop notifications</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Sound Effects</span>
+                                <span class="setting-desc">Play sounds for messages</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="glass-card settings-card">
+                        <h3 class="card-title">Chat</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Default Model</span>
+                                <span class="setting-desc">Select the default AI model</span>
+                            </div>
+                            <select class="setting-select">
+                                <option>Hermes-3-Llama-3.1-70B</option>
+                                <option>Qwen2.5-72B-Instruct</option>
+                                <option>Llama-3.3-70B</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Temperature</span>
+                                <span class="setting-desc">Response creativity (0.0 - 2.0)</span>
+                            </div>
+                            <input type="range" class="setting-range" min="0" max="200" value="70">
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Max Tokens</span>
+                                <span class="setting-desc">Maximum response length</span>
+                            </div>
+                            <input type="number" class="setting-input" value="4096">
+                        </div>
+                    </div>
+
+                    <div class="glass-card settings-card">
+                        <h3 class="card-title">API Configuration</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">API Endpoint</span>
+                                <span class="setting-desc">Backend API URL</span>
+                            </div>
+                            <input type="text" class="setting-input" value="http://localhost:8000">
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">WebSocket URL</span>
+                                <span class="setting-desc">Real-time connection endpoint</span>
+                            </div>
+                            <input type="text" class="setting-input" value="ws://localhost:8765">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

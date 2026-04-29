@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  hermes-webui:
+    build: .
+    container_name: hermes-webui-pro
+    ports:
+      - "8765:8765"
+    environment:
+      - HERMES_HOME=/home/agent/.hermes
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ${HERMES_HOME:-~/.hermes}:/home/agent/.hermes:ro
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
