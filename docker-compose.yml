@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  hermes-webui:
+    build: .
+    container_name: hermes-webui-pro
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - HERMES_WEB_PASSWORD=${HERMES_WEB_PASSWORD:-hermes}
+      - HERMES_JWT_SECRET=${HERMES_JWT_SECRET:-change-this-to-a-random-secret}
+      - HERMES_HOME=/root/.hermes
+      - PORT=8080
+    volumes:
+      - hermes_data:/root/.hermes
+    networks:
+      - hermes-net
+
+volumes:
+  hermes_data:
+
+networks:
+  hermes-net:
+    driver: bridge
