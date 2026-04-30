@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NGrid, NGi, NCard, NStatistic, NSpin, NEmpty, NTag } from 'naive-ui'
+import { NGrid, NGi, NCard, NStatistic, NSpin, NTag, NProgress } from 'naive-ui'
 import client from '@/api/client'
 
 const loading = ref(true)
-const usage = ref<any>({})
 const dashboard = ref<any>({})
+const sessions = ref<any[]>([])
+const jobs = ref<any[]>([])
 
 async function loadData() {
   try {
-    const [uRes, dRes] = await Promise.all([
-      client.get('/api/usage'),
-      client.get('/api/dashboard')
+    const [dRes, sRes, jRes] = await Promise.all([
+      client.get('/api/dashboard'),
+      client.get('/api/sessions'),
+      client.get('/api/jobs')
     ])
-    usage.value = uRes.data || {}
     dashboard.value = dRes.data || {}
+    sessions.value = sRes.data.sessions || []
+    jobs.value = jRes.data.jobs || []
   } catch (e) {
-    console.error('Failed to load usage:', e)
+    console.error('Failed to load data:', e)
   } finally { 
     loading.value = false 
   }
@@ -30,6 +33,12 @@ function formatBytes(bytes: number) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
+function getProgressColor(value: number) {
+  if (value > 90) return '#ef4444'
+  if (value > 70) return '#f59e0b'
+  return '#6366f1'
+}
+
 onMounted(loadData)
 </script>
 
@@ -38,100 +47,172 @@ onMounted(loadData)
     <div class="page-header">
       <div class="header-left">
         <h2>📊 使用统计</h2>
-        <span class="header-desc">系统资源和 API 使用情况</span>
+        <span class="header-desc">Hermes Agent 运行状态和数据概览</span>
       </div>
     </div>
     <div class="page-body" v-if="!loading">
       <!-- 系统资源 -->
-      <div class="section-title">系统资源</div>
-      <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-        <n-gi span="3 m:1">
-          <n-card class="stat-card">
-            <n-statistic label="CPU 使用率" :value="(dashboard.health?.cpu_percent || 0) + '%'" />
-          </n-card>
-        </n-gi>
-        <n-gi span="3 m:1">
-          <n-card class="stat-card">
-            <n-statistic label="内存使用率" :value="(dashboard.health?.memory?.percent || 0) + '%'" />
-            <div class="stat-detail">
-              {{ formatBytes(dashboard.health?.memory?.used) }} / {{ formatBytes(dashboard.health?.memory?.total) }}
-            </div>
-          </n-card>
-        </n-gi>
-        <n-gi span="3 m:1">
-          <n-card class="stat-card">
-            <n-statistic label="磁盘使用率" :value="(dashboard.health?.disk?.percent || 0) + '%'" />
-            <div class="stat-detail">
-              {{ formatBytes(dashboard.health?.disk?.used) }} / {{ formatBytes(dashboard.health?.disk?.total) }}
-            </div>
-          </n-card>
-        </n-gi>
-      </n-grid>
-
-      <!-- Agent 统计 -->
-      <div class="section-title" style="margin-top: 24px;">Agent 统计</div>
-      <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-        <n-gi span="4 m:2 l:1">
-          <n-card class="stat-card accent">
-            <n-statistic label="技能数量" :value="dashboard.skills_count || 0" />
-          </n-card>
-        </n-gi>
-        <n-gi span="4 m:2 l:1">
-          <n-card class="stat-card accent">
-            <n-statistic label="会话数量" :value="dashboard.sessions_count || 0" />
-          </n-card>
-        </n-gi>
-        <n-gi span="4 m:2 l:1">
-          <n-card class="stat-card accent">
-            <n-statistic label="定时任务" :value="dashboard.jobs?.length || 0" />
-          </n-card>
-        </n-gi>
-        <n-gi span="4 m:2 l:1">
-          <n-card class="stat-card accent">
-            <n-statistic label="记忆数量" :value="dashboard.memories_count || 0" />
-          </n-card>
-        </n-gi>
-      </n-grid>
-
-      <!-- 模型信息 -->
-      <div class="section-title" style="margin-top: 24px;">模型配置</div>
-      <n-card class="info-card">
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">默认模型</span>
-            <n-tag type="info" size="medium">{{ dashboard.models?.default_model || '未知' }}</n-tag>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Provider</span>
-            <n-tag type="success" size="medium">{{ dashboard.models?.default_provider || '未知' }}</n-tag>
-          </div>
-          <div class="info-item">
-            <span class="info-label">免费模型</span>
-            <n-tag type="warning" size="medium">{{ dashboard.models?.free_models_count || 0 }}</n-tag>
-          </div>
+      <div class="section">
+        <div class="section-title">
+          <span class="section-icon">💻</span>
+          系统资源
         </div>
-      </n-card>
-
-      <!-- API 统计 -->
-      <div v-if="Object.keys(usage).length > 0" style="margin-top: 24px;">
-        <div class="section-title">API 使用</div>
         <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
           <n-gi span="3 m:1">
-            <n-card class="stat-card">
-              <n-statistic label="总请求数" :value="usage.total_requests || 0" />
+            <n-card class="resource-card">
+              <div class="resource-header">
+                <span class="resource-label">CPU 使用率</span>
+                <span class="resource-value">{{ dashboard.health?.cpu_percent || 0 }}%</span>
+              </div>
+              <n-progress 
+                type="line" 
+                :percentage="dashboard.health?.cpu_percent || 0" 
+                :color="getProgressColor(dashboard.health?.cpu_percent || 0)"
+                :show-indicator="false"
+                :height="8"
+                :border-radius="4"
+              />
             </n-card>
           </n-gi>
           <n-gi span="3 m:1">
-            <n-card class="stat-card">
-              <n-statistic label="总 Token 数" :value="usage.total_tokens || 0" />
+            <n-card class="resource-card">
+              <div class="resource-header">
+                <span class="resource-label">内存使用率</span>
+                <span class="resource-value">{{ dashboard.health?.memory?.percent || 0 }}%</span>
+              </div>
+              <n-progress 
+                type="line" 
+                :percentage="dashboard.health?.memory?.percent || 0" 
+                :color="getProgressColor(dashboard.health?.memory?.percent || 0)"
+                :show-indicator="false"
+                :height="8"
+                :border-radius="4"
+              />
+              <div class="resource-detail">
+                {{ formatBytes(dashboard.health?.memory?.used) }} / {{ formatBytes(dashboard.health?.memory?.total) }}
+              </div>
             </n-card>
           </n-gi>
           <n-gi span="3 m:1">
-            <n-card class="stat-card">
-              <n-statistic label="平均响应" :value="(usage.avg_response_time || 0) + 'ms'" />
+            <n-card class="resource-card">
+              <div class="resource-header">
+                <span class="resource-label">磁盘使用率</span>
+                <span class="resource-value">{{ dashboard.health?.disk?.percent || 0 }}%</span>
+              </div>
+              <n-progress 
+                type="line" 
+                :percentage="dashboard.health?.disk?.percent || 0" 
+                :color="getProgressColor(dashboard.health?.disk?.percent || 0)"
+                :show-indicator="false"
+                :height="8"
+                :border-radius="4"
+              />
+              <div class="resource-detail">
+                {{ formatBytes(dashboard.health?.disk?.used) }} / {{ formatBytes(dashboard.health?.disk?.total) }}
+              </div>
             </n-card>
           </n-gi>
         </n-grid>
+      </div>
+
+      <!-- Agent 数据 -->
+      <div class="section">
+        <div class="section-title">
+          <span class="section-icon">🤖</span>
+          Agent 数据
+        </div>
+        <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
+          <n-gi span="4 m:2 l:1">
+            <n-card class="stat-card gradient-purple">
+              <div class="stat-icon">🛠️</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ dashboard.skills_count || 0 }}</div>
+                <div class="stat-label">技能</div>
+              </div>
+            </n-card>
+          </n-gi>
+          <n-gi span="4 m:2 l:1">
+            <n-card class="stat-card gradient-blue">
+              <div class="stat-icon">💬</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ sessions.length }}</div>
+                <div class="stat-label">会话</div>
+              </div>
+            </n-card>
+          </n-gi>
+          <n-gi span="4 m:2 l:1">
+            <n-card class="stat-card gradient-green">
+              <div class="stat-icon">⏰</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ jobs.length }}</div>
+                <div class="stat-label">定时任务</div>
+              </div>
+            </n-card>
+          </n-gi>
+          <n-gi span="4 m:2 l:1">
+            <n-card class="stat-card gradient-orange">
+              <div class="stat-icon">🧠</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ dashboard.memories_count || 0 }}</div>
+                <div class="stat-label">记忆</div>
+              </div>
+            </n-card>
+          </n-gi>
+        </n-grid>
+      </div>
+
+      <!-- 模型配置 -->
+      <div class="section">
+        <div class="section-title">
+          <span class="section-icon">⚙️</span>
+          模型配置
+        </div>
+        <n-card class="config-card">
+          <div class="config-grid">
+            <div class="config-item">
+              <span class="config-label">默认模型</span>
+              <n-tag type="info" size="large">{{ dashboard.models?.default_model || '未知' }}</n-tag>
+            </div>
+            <div class="config-item">
+              <span class="config-label">Provider</span>
+              <n-tag type="success" size="large">{{ dashboard.models?.default_provider || '未知' }}</n-tag>
+            </div>
+            <div class="config-item">
+              <span class="config-label">免费模型库</span>
+              <n-tag type="warning" size="large">{{ dashboard.models?.free_models_count || 0 }} 个</n-tag>
+            </div>
+          </div>
+        </n-card>
+      </div>
+
+      <!-- 网关状态 -->
+      <div class="section">
+        <div class="section-title">
+          <span class="section-icon">🌐</span>
+          网关状态
+        </div>
+        <n-card class="gateway-card">
+          <div class="gateway-header">
+            <span class="gateway-status" :class="dashboard.gateway?.state">
+              <span class="status-dot"></span>
+              {{ dashboard.gateway?.state === 'running' ? '运行中' : '离线' }}
+            </span>
+            <span class="gateway-agents">{{ dashboard.gateway?.active_agents || 0 }} 个活跃 Agent</span>
+          </div>
+          <div class="platforms-grid">
+            <div 
+              v-for="(info, name) in (dashboard.gateway?.platforms || {})" 
+              :key="name" 
+              class="platform-item"
+              :class="{ connected: info.state === 'connected' }"
+            >
+              <span class="platform-name">{{ name }}</span>
+              <n-tag size="small" :type="info.state === 'connected' ? 'success' : 'warning'">
+                {{ info.state === 'connected' ? '已连接' : info.state }}
+              </n-tag>
+            </div>
+          </div>
+        </n-card>
       </div>
     </div>
     <div v-else class="loading-wrap"><n-spin size="large" /></div>
@@ -154,66 +235,115 @@ h2 { margin: 0; font-size: 22px; font-weight: 600; }
 .page-body { flex: 1; overflow-y: auto; padding: 24px 32px; }
 .loading-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 
+.section { margin-bottom: 32px; }
 .section-title {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
   font-weight: 600;
   margin-bottom: 16px;
   color: var(--text-primary);
 }
+.section-icon { font-size: 24px; }
+
+.resource-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 20px;
+}
+.resource-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.resource-label { font-size: 14px; color: var(--text-secondary); }
+.resource-value { font-size: 24px; font-weight: 700; }
+.resource-detail { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
 
 .stat-card {
-  background: var(--card-bg);
-  border-radius: 12px;
-  transition: all 0.2s;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
   }
   
-  &.accent {
-    background: linear-gradient(135deg, var(--primary-color), #818cf8);
-    
-    :deep(.n-statistic .n-statistic__label) {
-      color: rgba(255, 255, 255, 0.8);
-    }
-    
-    :deep(.n-statistic .n-statistic-value__content) {
-      color: white;
-    }
-  }
+  &.gradient-purple { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+  &.gradient-blue { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+  &.gradient-green { background: linear-gradient(135deg, #22c55e, #10b981); }
+  &.gradient-orange { background: linear-gradient(135deg, #f59e0b, #f97316); }
 }
+.stat-icon { font-size: 40px; }
+.stat-content { flex: 1; }
+.stat-value { font-size: 36px; font-weight: 800; color: white; }
+.stat-label { font-size: 14px; color: rgba(255, 255, 255, 0.85); }
 
-.stat-detail {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-.info-card {
+.config-card {
   background: var(--card-bg);
-  border-radius: 12px;
+  border-radius: 14px;
 }
-
-.info-grid {
+.config-grid {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 24px;
 }
-
-.info-item {
+.config-item {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+.config-label { font-size: 14px; color: var(--text-secondary); min-width: 80px; }
 
-.info-label {
-  min-width: 80px;
-  color: var(--text-secondary);
+.gateway-card {
+  background: var(--card-bg);
+  border-radius: 14px;
 }
+.gateway-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.gateway-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  
+  &.running .status-dot { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+  &.stopped .status-dot { background: #ef4444; }
+}
+.status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.gateway-agents { font-size: 13px; color: var(--text-secondary); }
+
+.platforms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.platform-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--hover-color);
+  border-radius: 10px;
+  
+  &.connected { border: 1px solid rgba(34, 197, 94, 0.3); }
+}
+.platform-name { font-weight: 500; text-transform: capitalize; }
 
 @media (max-width: 768px) {
   .page-header { padding: 16px; }
   .page-body { padding: 16px; }
+  .stat-card { padding: 16px; }
+  .stat-value { font-size: 28px; }
 }
 </style>
