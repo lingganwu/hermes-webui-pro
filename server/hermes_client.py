@@ -166,48 +166,75 @@ def get_memory_content(name: str) -> str:
 
 
 def get_sessions(limit: int = 100) -> List[dict]:
-    """获取会话列表 - 兼容无 meta.json 的情况"""
+    """获取会话列表 - 支持目录和 JSON 文件两种格式"""
     sessions_dir = HERMES_DATA / "sessions"
     result = []
-    if sessions_dir.exists():
-        sessions = sorted(sessions_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)
-        count = 0
-        for s in sessions:
-            if count >= limit:
-                break
-            if not s.is_dir():
-                continue
-            
-            # 尝试读取 meta.json
-            meta_file = s / "meta.json"
+    if not sessions_dir.exists():
+        return result
+    
+    items = sorted(sessions_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)
+    count = 0
+    
+    for item in items:
+        if count >= limit:
+            break
+        
+        # 格式1: 目录格式 (有 meta.json)
+        if item.is_dir():
+            meta_file = item / "meta.json"
             if meta_file.exists():
                 try:
                     meta = json.loads(meta_file.read_text(encoding="utf-8", errors="ignore"))
                     result.append({
-                        "id": s.name,
-                        "title": meta.get("title", s.name[:8] + "..."),
+                        "id": item.name,
+                        "title": meta.get("title", item.name[:12]),
                         "created_at": meta.get("created_at", ""),
                         "updated_at": meta.get("updated_at", ""),
                         "message_count": meta.get("message_count", 0),
                     })
+                    count += 1
                 except:
-                    result.append({
-                        "id": s.name,
-                        "title": s.name[:8] + "...",
-                        "created_at": datetime.fromtimestamp(s.stat().st_ctime).isoformat(),
-                        "updated_at": datetime.fromtimestamp(s.stat().st_mtime).isoformat(),
-                        "message_count": 0,
-                    })
+                    pass
             else:
-                # 没有 meta.json，使用目录信息
                 result.append({
-                    "id": s.name,
-                    "title": s.name[:12] + "...",
-                    "created_at": datetime.fromtimestamp(s.stat().st_ctime).isoformat(),
-                    "updated_at": datetime.fromtimestamp(s.stat().st_mtime).isoformat(),
+                    "id": item.name,
+                    "title": item.name[:16],
+                    "created_at": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                    "updated_at": datetime.fromtimestamp(item.stat().st_mtime).isoformat(),
                     "message_count": 0,
                 })
-            count += 1
+                count += 1
+        
+        # 格式2: JSON 文件格式 (session_*.json 或 *.jsonl)
+        elif item.is_file() and (item.suffix == '.json' or item.suffix == '.jsonl'):
+            name = item.stem
+            # 跳过 request_dump 文件
+            if name.startswith('request_dump'):
+                continue
+            
+            try:
+                # 尝试读取文件获取更多信息
+                content = item.read_text(encoding="utf-8", errors="ignore")
+                msg_count = content.count('"role"') if item.suffix == '.json' else content.count('\n')
+                
+                result.append({
+                    "id": item.name,
+                    "title": name[:30],
+                    "created_at": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                    "updated_at": datetime.fromtimestamp(item.stat().st_mtime).isoformat(),
+                    "message_count": max(0, msg_count // 2),  # 每条消息有 user 和 assistant
+                })
+                count += 1
+            except:
+                result.append({
+                    "id": item.name,
+                    "title": name[:30],
+                    "created_at": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                    "updated_at": datetime.fromtimestamp(item.stat().st_mtime).isoformat(),
+                    "message_count": 0,
+                })
+                count += 1
+    
     return result
 
 
