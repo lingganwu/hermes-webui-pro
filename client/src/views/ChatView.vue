@@ -1,100 +1,258 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue'
-import { NInput, NButton, NIcon, NTag, NEmpty, NScrollbar, NDropdown } from 'naive-ui'
-import { useChatStore } from '@/stores/chat'
-import { useAppStore } from '@/stores/app'
-import ChatMessage from '@/components/chat/ChatMessage.vue'
+import { ref, onMounted, nextTick } from 'vue'
+import { NInput, NButton, NSpin, NEmpty } from 'naive-ui'
+import client from '@/api/client'
 
-const chatStore = useChatStore()
-const appStore = useAppStore()
-const inputMsg = ref('')
-const scrollRef = ref<InstanceType<typeof NScrollbar>>()
-const inputRef = ref()
+const messages = ref<any[]>([])
+const input = ref('')
+const loading = ref(false)
+const chatContainer = ref<HTMLElement | null>(null)
 
 function scrollToBottom() {
-  nextTick(() => { scrollRef.value?.scrollTo({ top: 999999, behavior: 'smooth' }) })
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    }
+  })
 }
 
 async function sendMessage() {
-  const text = inputMsg.value.trim()
-  if (!text || chatStore.loading) return
-  inputMsg.value = ''
-  await chatStore.sendMessage(text)
+  if (!input.value.trim() || loading.value) return
+  
+  const userMsg = { role: 'user', content: input.value, time: new Date() }
+  messages.value.push(userMsg)
+  const msg = input.value
+  input.value = ''
+  loading.value = true
   scrollToBottom()
+  
+  try {
+    const res = await client.post('/api/chat', { message: msg })
+    messages.value.push({ 
+      role: 'assistant', 
+      content: res.data.response || res.data.message || '收到消息', 
+      time: new Date() 
+    })
+  } catch (e: any) {
+    messages.value.push({ 
+      role: 'error', 
+      content: e.response?.data?.detail || '发送失败', 
+      time: new Date() 
+    })
+  } finally {
+    loading.value = false
+    scrollToBottom()
+  }
 }
 
-async function selectSession(id: string) {
-  await chatStore.loadSession(id)
-  scrollToBottom()
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    sendMessage()
+  }
 }
 
-onMounted(() => { chatStore.loadSessions() })
+onMounted(() => {
+  messages.value.push({
+    role: 'system',
+    content: '欢迎使用 Hermes Agent 聊天功能！输入消息开始对话。',
+    time: new Date()
+  })
+})
 </script>
 
 <template>
-  <div class="chat-view">
-    <!-- Session sidebar -->
-    <aside class="chat-sidebar">
-      <div class="sidebar-header">
-        <span>💬 会话</span>
-        <n-button size="tiny" quaternary @click="chatStore.createSession()">+ 新建</n-button>
-      </div>
-      <n-scrollbar class="session-list">
-        <div v-for="s in chatStore.sessions" :key="s.id" class="session-item" :class="{ active: s.id === chatStore.activeSessionId }" @click="selectSession(s.id)">
-          <div class="session-title">{{ s.title || '新对话' }}</div>
-          <div class="session-meta">{{ s.messageCount || 0 }} 条</div>
+  <div class="chat-page">
+    <div class="chat-header">
+      <h2>💬 聊天</h2>
+      <span class="chat-desc">与 Hermes Agent 实时对话</span>
+    </div>
+    
+    <div class="chat-messages" ref="chatContainer">
+      <div v-for="(msg, i) in messages" :key="i" class="message" :class="msg.role">
+        <div class="message-avatar">
+          {{ msg.role === 'user' ? '👤' : msg.role === 'error' ? '❌' : '🤖' }}
         </div>
-        <n-empty v-if="!chatStore.sessions.length" description="暂无会话" size="small" />
-      </n-scrollbar>
-    </aside>
-
-    <!-- Chat main -->
-    <div class="chat-main">
-      <div class="chat-header">
-        <span>{{ chatStore.activeSession?.title || 'Hermes Chat' }}</span>
-        <n-tag size="small" type="info">{{ appStore.selectedModel || 'default' }}</n-tag>
-      </div>
-
-      <n-scrollbar ref="scrollRef" class="chat-messages">
-        <div class="messages-inner">
-          <ChatMessage v-for="msg in chatStore.messages" :key="msg.id" :message="msg" />
-          <div v-if="chatStore.loading" class="typing-indicator">
-            <span></span><span></span><span></span>
-          </div>
+        <div class="message-content">
+          <div class="message-text">{{ msg.content }}</div>
+          <div class="message-time">{{ msg.time?.toLocaleTimeString('zh-CN') }}</div>
         </div>
-      </n-scrollbar>
-
-      <div class="chat-input-bar">
-        <n-input ref="inputRef" v-model:value="inputMsg" type="textarea" :rows="1" :autosize="{ minRows: 1, maxRows: 5 }" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)" @keydown.enter.exact.prevent="sendMessage" :disabled="chatStore.loading" />
-        <n-button type="primary" :disabled="!inputMsg.trim() || chatStore.loading" @click="sendMessage">
-          发送
-        </n-button>
       </div>
+      <div v-if="loading" class="message assistant">
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+          <n-spin size="small" />
+        </div>
+      </div>
+      <div v-if="!messages.length" class="empty-state">
+        <n-empty description="开始对话吧" />
+      </div>
+    </div>
+    
+    <div class="chat-input">
+      <n-input 
+        v-model:value="input" 
+        type="textarea" 
+        :rows="1" 
+        placeholder="输入消息... (Enter 发送)" 
+        @keydown="handleKeydown"
+        :disabled="loading"
+        autosize
+        :maxlength="4000"
+      />
+      <n-button 
+        type="primary" 
+        @click="sendMessage" 
+        :loading="loading"
+        :disabled="!input.trim()"
+        circle
+      >
+        <template #icon>
+          <span style="font-size: 18px;">➤</span>
+        </template>
+      </n-button>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-.chat-view { display: flex; height: 100%; overflow: hidden; }
-.chat-sidebar { width: 260px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
-.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; font-weight: 600; border-bottom: 1px solid var(--border-color); }
-.session-list { flex: 1; }
-.session-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.15s;
-  &:hover { background: var(--hover-color); }
-  &.active { background: rgba(99, 102, 241, 0.1); border-left: 3px solid #6366f1; }
+.chat-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.session-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.session-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-.chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.chat-header { padding: 12px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; font-weight: 600; flex-shrink: 0; }
-.chat-messages { flex: 1; }
-.messages-inner { padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
-.chat-input-bar { padding: 12px 20px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; }
-.typing-indicator { display: flex; gap: 4px; padding: 12px 16px;
-  span { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); animation: bounce 1.4s infinite;
-    &:nth-child(2) { animation-delay: 0.2s; }
-    &:nth-child(3) { animation-delay: 0.4s; }
+
+.chat-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  
+  .chat-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
   }
 }
-@keyframes bounce { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  display: flex;
+  gap: 12px;
+  max-width: 85%;
+  
+  &.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+    
+    .message-content {
+      background: var(--primary-color);
+      color: white;
+      border-radius: 16px 16px 4px 16px;
+    }
+  }
+  
+  &.assistant, &.system {
+    align-self: flex-start;
+    
+    .message-content {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px 16px 16px 4px;
+    }
+  }
+  
+  &.error {
+    align-self: flex-start;
+    
+    .message-content {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 16px 16px 16px 4px;
+      color: #ef4444;
+    }
+  }
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.message-content {
+  padding: 12px 16px;
+  max-width: 100%;
+}
+
+.message-text {
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.message-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-input {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-shrink: 0;
+  background: var(--body-color);
+  
+  :deep(.n-input) {
+    flex: 1;
+  }
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 16px;
+  }
+  
+  .chat-messages {
+    padding: 12px;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .chat-input {
+    padding: 12px;
+  }
+}
 </style>
