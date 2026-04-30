@@ -265,6 +265,30 @@ def get_workflows() -> list:
     return wf if isinstance(wf, list) else []
 
 
+def get_state_db_stats() -> dict:
+    """从 state.db 获取统计信息"""
+    db_path = HERMES_DATA / "state.db"
+    if not db_path.exists():
+        return {}
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [row[0] for row in cursor.fetchall()]
+        stats = {"tables": tables}
+        for table in tables:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM [{table}]")
+                stats[f"{table}_count"] = cursor.fetchone()[0]
+            except:
+                pass
+        conn.close()
+        return stats
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def get_all_models() -> dict:
     free_models = read_json(HERMES_DATA / "free_models.json") or {}
     models = free_models.get("models", []) if isinstance(free_models, dict) else []
