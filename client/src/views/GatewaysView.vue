@@ -40,8 +40,8 @@ onMounted(loadGateway)
       <n-card title="平台" style="margin-top:16px">
         <div class="platforms">
           <div v-for="(info, name) in gateway.platforms" :key="name" class="platform">
-            <span class="icon">{{ getPlatformIcon(name as string) }}</span>
-            <span class="name">{{ getPlatformLabel(name as string) }}</span>
+            <span class="icon">{{ getPlatformIcon(String(name)) }}</span>
+            <span class="name">{{ getPlatformLabel(String(name)) }}</span>
             <n-tag size="small" :type="info.state === 'connected' ? 'success' : 'warning'">{{ info.state === 'connected' ? '已连接' : info.state }}</n-tag>
           </div>
         </div>
