@@ -1,60 +1,63 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NCard, NTag, NGrid, NGi, NEmpty, NSpin, NButton } from 'naive-ui'
+import { NCard, NTag, NSpin, NDescriptions, NDescriptionsItem } from 'naive-ui'
 import { fetchGateways } from '@/api/system'
 
 const loading = ref(true)
-const gateways = ref<any[]>([])
+const gateway = ref<any>({})
 
-async function loadGateways() {
-  loading.value = true
-  try { const { data } = await fetchGateways(); gateways.value = data.gateways || [] }
-  catch { } finally { loading.value = false }
+function getPlatformIcon(name: string) {
+  const icons: Record<string, string> = { telegram: '📱', discord: '💬', weixin: '💚', api_server: '🔌' }
+  return icons[name] || '🌐'
 }
 
-const iconMap: Record<string, string> = {
-  telegram: '✈️', discord: '🎮', slack: '💬', whatsapp: '📱', weixin: '💚',
-  sms: '📧', signal: '🔒', matrix: '🔗', feishu: '🐦', web: '🌐',
+function getPlatformLabel(name: string) {
+  const labels: Record<string, string> = { telegram: 'Telegram', discord: 'Discord', weixin: '微信', api_server: 'API 服务器' }
+  return labels[name] || name
 }
 
-onMounted(loadGateways)
+async function loadGateway() {
+  try { gateway.value = (await fetchGateways()).data } catch { } finally { loading.value = false }
+}
+
+onMounted(loadGateway)
 </script>
 
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>🌐 网关</h2>
-      <n-button size="small" @click="loadGateways">刷新</n-button>
+      <h2>网关状态</h2>
+      <n-tag :type="gateway.state === 'running' ? 'success' : 'error'">{{ gateway.state === 'running' ? '运行中' : '离线' }}</n-tag>
     </div>
-    <div class="page-body">
-      <n-spin :show="loading">
-        <n-grid :cols="3" :x-gap="12" :y-gap="12" responsive="screen" item-responsive v-if="gateways.length">
-          <n-gi span="3 m:1" v-for="gw in gateways" :key="gw.name">
-            <n-card size="small" class="gw-card">
-              <div class="gw-header">
-                <span class="gw-icon">{{ iconMap[gw.name] || '🔌' }}</span>
-                <span class="gw-name">{{ gw.name }}</span>
-                <n-tag size="small" :type="gw.connected ? 'success' : 'warning'">
-                  {{ gw.connected ? '在线' : '离线' }}
-                </n-tag>
-              </div>
-              <div class="gw-info" v-if="gw.platform">平台: {{ gw.platform }}</div>
-            </n-card>
-          </n-gi>
-        </n-grid>
-        <n-empty v-else description="暂无网关" />
-      </n-spin>
+    <div class="page-body" v-if="!loading">
+      <n-card title="概览">
+        <n-descriptions bordered :column="2">
+          <n-descriptions-item label="状态"><n-tag :type="gateway.state === 'running' ? 'success' : 'error'">{{ gateway.state }}</n-tag></n-descriptions-item>
+          <n-descriptions-item label="PID">{{ gateway.pid || 'N/A' }}</n-descriptions-item>
+          <n-descriptions-item label="活跃 Agents">{{ gateway.active_agents || 0 }}</n-descriptions-item>
+        </n-descriptions>
+      </n-card>
+      <n-card title="平台" style="margin-top:16px">
+        <div class="platforms">
+          <div v-for="(info, name) in gateway.platforms" :key="name" class="platform">
+            <span class="icon">{{ getPlatformIcon(name as string) }}</span>
+            <span class="name">{{ getPlatformLabel(name as string) }}</span>
+            <n-tag size="small" :type="info.state === 'connected' ? 'success' : 'warning'">{{ info.state === 'connected' ? '已连接' : info.state }}</n-tag>
+          </div>
+        </div>
+      </n-card>
     </div>
+    <div v-else class="loading-wrap"><n-spin size="large" /></div>
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped>
 .page-container { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; h2 { margin: 0; font-size: 18px; } }
-.page-body { flex: 1; overflow-y: auto; padding: 24px; }
-.gw-card { transition: transform 0.15s; &:hover { transform: translateY(-2px); } }
-.gw-header { display: flex; align-items: center; gap: 10px; }
-.gw-icon { font-size: 24px; }
-.gw-name { font-weight: 600; font-size: 15px; flex: 1; }
-.gw-info { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+.page-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.loading-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+.platforms { display: flex; flex-direction: column; gap: 12px; }
+.platform { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--hover-color); border-radius: 8px; }
+.icon { font-size: 24px; }
+.name { flex: 1; font-weight: 500; }
 </style>

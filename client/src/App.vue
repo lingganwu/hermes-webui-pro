@@ -1,75 +1,72 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { darkTheme, NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider } from 'naive-ui'
-import { useTheme } from '@/composables/useTheme'
-import { lightThemeOverrides, darkThemeOverrides } from '@/styles/theme'
+import { ref, computed, onMounted } from 'vue'
+import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, zhCN, dateZhCN } from 'naive-ui'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
-import { useAuthStore } from '@/stores/auth'
+import { useRouter, useRoute } from 'vue-router'
 
+const router = useRouter()
 const route = useRoute()
-const { isDark } = useTheme()
-const authStore = useAuthStore()
-const ready = ref(false)
 
-const naiveTheme = computed(() => isDark.value ? darkTheme : null)
-const themeOverrides = computed(() => isDark.value ? darkThemeOverrides : lightThemeOverrides)
-const isLoginPage = computed(() => route.name === 'login')
+const isDark = ref(localStorage.getItem('hermes_theme') === 'dark')
+const isLoggedIn = computed(() => !!localStorage.getItem('hermes_token'))
+const isLoginPage = computed(() => route.name === 'Login')
 
-onMounted(async () => {
-  if (authStore.token) {
-    await authStore.verify()
-  }
-  ready.value = true
+// 监听主题变化
+onMounted(() => {
+  const observer = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark')
+  })
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })
+
+const theme = computed(() => isDark.value ? darkTheme : null)
 </script>
 
 <template>
-  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
-    <NMessageProvider>
-      <NDialogProvider>
-        <NNotificationProvider>
-          <div v-if="ready" class="app-root" :class="{ 'is-login': isLoginPage }">
-            <AppSidebar v-if="!isLoginPage" />
-            <main class="app-main" :class="{ 'full-width': isLoginPage }">
-              <router-view v-slot="{ Component }">
-                <transition name="fade" mode="out-in">
-                  <component :is="Component" />
-                </transition>
-              </router-view>
-            </main>
-          </div>
-        </NNotificationProvider>
-      </NDialogProvider>
-    </NMessageProvider>
-  </NConfigProvider>
+  <n-config-provider :theme="theme" :locale="zhCN" :date-locale="dateZhCN">
+    <n-message-provider>
+      <n-dialog-provider>
+        <div class="app-layout" v-if="!isLoginPage">
+          <AppSidebar />
+          <main class="main-content">
+            <router-view v-slot="{ Component }">
+              <transition name="fade" mode="out-in">
+                <component :is="Component" />
+              </transition>
+            </router-view>
+          </main>
+        </div>
+        <router-view v-else v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
+      </n-dialog-provider>
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
 <style lang="scss">
-.app-root {
+.app-layout {
   display: flex;
   height: 100vh;
-  height: 100dvh;
   overflow: hidden;
-  background: var(--bg-body);
+  background: var(--body-color);
 }
 
-.app-main {
+.main-content {
   flex: 1;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-
-  &.full-width {
-    width: 100%;
-  }
+  background: var(--body-color);
+  position: relative;
 }
 
+/* Page transitions */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;

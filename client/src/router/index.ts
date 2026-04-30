@@ -1,78 +1,32 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+
+const routes = [
+  { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue') },
+  { path: '/', name: 'Dashboard', component: () => import('@/views/DashboardView.vue') },
+  { path: '/chat', name: 'Chat', component: () => import('@/views/ChatView.vue') },
+  { path: '/memory', name: 'Memory', component: () => import('@/views/MemoryView.vue') },
+  { path: '/jobs', name: 'Jobs', component: () => import('@/views/JobsView.vue') },
+  { path: '/models', name: 'Models', component: () => import('@/views/ModelsView.vue') },
+  { path: '/skills', name: 'Skills', component: () => import('@/views/SkillsView.vue') },
+  { path: '/sessions', name: 'Sessions', component: () => import('@/views/SessionsView.vue') },
+  { path: '/usage', name: 'Usage', component: () => import('@/views/UsageView.vue') },
+  { path: '/logs', name: 'Logs', component: () => import('@/views/LogsView.vue') },
+  { path: '/gateways', name: 'Gateways', component: () => import('@/views/GatewaysView.vue') },
+  { path: '/terminal', name: 'Terminal', component: () => import('@/views/TerminalView.vue') },
+  { path: '/settings', name: 'Settings', component: () => import('@/views/SettingsView.vue') },
+]
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes: [
-    {
-      path: '/',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { public: true },
-    },
-    {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('@/views/DashboardView.vue'),
-    },
-    {
-      path: '/chat',
-      name: 'chat',
-      component: () => import('@/views/ChatView.vue'),
-    },
-    {
-      path: '/memory',
-      name: 'memory',
-      component: () => import('@/views/MemoryView.vue'),
-    },
-    {
-      path: '/jobs',
-      name: 'jobs',
-      component: () => import('@/views/JobsView.vue'),
-    },
-    {
-      path: '/models',
-      name: 'models',
-      component: () => import('@/views/ModelsView.vue'),
-    },
-    {
-      path: '/skills',
-      name: 'skills',
-      component: () => import('@/views/SkillsView.vue'),
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/views/SettingsView.vue'),
-    },
-    {
-      path: '/terminal',
-      name: 'terminal',
-      component: () => import('@/views/TerminalView.vue'),
-    },
-    {
-      path: '/usage',
-      name: 'usage',
-      component: () => import('@/views/UsageView.vue'),
-    },
-    {
-      path: '/logs',
-      name: 'logs',
-      component: () => import('@/views/LogsView.vue'),
-    },
-    {
-      path: '/gateways',
-      name: 'gateways',
-      component: () => import('@/views/GatewaysView.vue'),
-    },
-  ],
+  routes,
 })
 
-router.beforeEach((to) => {
-  if (to.meta.public) return true
-  const authStore = useAuthStore()
-  if (!authStore.isAuthenticated) {
-    return { name: 'login' }
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('hermes_token')
+  if (to.name !== 'Login' && !token) {
+    next({ name: 'Login' })
+  } else {
+    next()
   }
 })
 

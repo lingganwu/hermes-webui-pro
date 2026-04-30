@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NInput, NButton, NScrollbar, NTag } from 'naive-ui'
-import { fetchLogs } from '@/api/system'
+import { NList, NListItem, NThing, NSpin, NEmpty, NModal, NInput } from 'naive-ui'
+import client from '@/api/client'
 
-const logs = ref<string[]>([])
-const filter = ref('')
-const loading = ref(false)
+const loading = ref(true)
+const logs = ref<any[]>([])
+const showModal = ref(false)
+const content = ref('')
 
 async function loadLogs() {
-  loading.value = true
-  try { const { data } = await fetchLogs(); logs.value = data.lines || [] }
-  catch { } finally { loading.value = false }
+  try { logs.value = (await client.get('/api/logs')).data.logs || [] } catch { } finally { loading.value = false }
 }
 
-const filtered = () => {
-  if (!filter.value.trim()) return logs.value
-  const q = filter.value.toLowerCase()
-  return logs.value.filter(l => l.toLowerCase().includes(q))
+async function viewLog(name: string) {
+  try { content.value = (await client.get('/api/logs/' + name)).data.content || ''; showModal.value = true } catch { }
 }
 
 onMounted(loadLogs)
@@ -24,31 +21,25 @@ onMounted(loadLogs)
 
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>📋 日志</h2>
-      <div style="display:flex;gap:8px">
-        <n-input v-model:value="filter" placeholder="过滤..." size="small" clearable style="width:200px" />
-        <n-button size="small" @click="loadLogs">刷新</n-button>
-      </div>
+    <div class="page-header"><h2>日志</h2><n-tag size="small">{{ logs.length }} 个</n-tag></div>
+    <div class="page-body" v-if="!loading">
+      <n-list hoverable v-if="logs.length">
+        <n-list-item v-for="l in logs" :key="l.name" @click="viewLog(l.name)" style="cursor:pointer">
+          <n-thing :title="l.name" :description="new Date(l.modified).toLocaleString('zh-CN')" />
+        </n-list-item>
+      </n-list>
+      <n-empty v-else description="暂无日志" />
     </div>
-    <div class="logs-body">
-      <n-scrollbar>
-        <div class="log-lines">
-          <div v-for="(line, i) in filtered()" :key="i" class="log-line" :class="{ error: line.includes('ERROR'), warn: line.includes('WARN') }">{{ line }}</div>
-          <div v-if="!filtered().length" style="color:var(--text-secondary);text-align:center;padding:40px">暂无日志</div>
-        </div>
-      </n-scrollbar>
-    </div>
+    <div v-else class="loading-wrap"><n-spin size="large" /></div>
+    <n-modal v-model:show="showModal" preset="card" title="日志内容" style="width:90%">
+      <n-input v-model:value="content" type="textarea" :rows="30" readonly style="font-family:monospace" />
+    </n-modal>
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped>
 .page-container { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; h2 { margin: 0; font-size: 18px; } }
-.logs-body { flex: 1; overflow: hidden; background: #0d1117; }
-.log-lines { padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; }
-.log-line { color: #c9d1d9; white-space: pre-wrap; word-break: break-all;
-  &.error { color: #f85149; }
-  &.warn { color: #d29922; }
-}
+.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+.page-body { flex: 1; overflow-y: auto; padding: 24px; }
+.loading-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 </style>

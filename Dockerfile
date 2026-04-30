@@ -1,35 +1,25 @@
-# Stage 1: Build Vue frontend
-FROM node:20-alpine AS frontend-build
+# Build stage
+FROM node:20-alpine as builder
 WORKDIR /app/client
-COPY client/package.json client/package-lock.json* ./
-RUN npm install
+COPY client/package*.json ./
+RUN npm ci
 COPY client/ .
 RUN npm run build
 
-# Stage 2: Python backend + serve frontend
-FROM python:3.12-slim
+# Runtime stage
+FROM python:3.11-slim
 WORKDIR /app
 
-# Install system deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl procps && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY server/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python deps
-COPY server/requirements.txt ./server/
-RUN pip install --no-cache-dir -r server/requirements.txt
+COPY server/ .
+COPY --from=builder /app/client/dist /app/static
 
-# Copy server code
-COPY server/ ./server/
+ENV HERMES_DATA_PATH=/hermes-data
+ENV JWT_SECRET=hermes-webui-pro-secret-key-2024
+ENV LOGIN_PASSWORD=hermes2024
 
-# Copy built frontend
-COPY --from=frontend-build /app/client/dist ./client/dist
+EXPOSE 8090
 
-ENV HERMES_HOME=/opt/data
-ENV HERMES_API_URL=http://host.docker.internal:8642
-ENV PORT=8080
-ENV PYTHONUNBUFFERED=1
-
-EXPOSE 8080
-
-CMD ["python", "server/main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8090"]

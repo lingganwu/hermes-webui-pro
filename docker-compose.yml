@@ -1,18 +1,15 @@
+version: '3.8'
+
 services:
-  hermes-webui:
+  hermes-webui-pro:
     build: .
     container_name: hermes-webui-pro
-    restart: unless-stopped
     ports:
-      - "8090:8080"
-    environment:
-      - HERMES_WEB_PASSWORD=${HERMES_WEB_PASSWORD:-hermes2024}
-      - HERMES_JWT_SECRET=${HERMES_JWT_SECRET:-hermes-webui-jwt-secret-2024}
-      - HERMES_HOME=/opt/data
-      - HERMES_API_URL=http://host.docker.internal:8642
-      - HERMES_API_KEY=2ce902868681037446986e161fa14d7a8b0b7f09ab2e7184d5330df23d23dd764099bf8c6d755482146735b88e9b58ab56839aad625b10f2d2bdf352305c0160
-      - PORT=8080
+      - "8090:8090"
     volumes:
-      - /vol1/1000/docker/hermes/data:/opt/data:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - /vol1/1000/docker/hermes/data:/hermes-data:ro
+    environment:
+      - HERMES_DATA_PATH=/hermes-data
+      - JWT_SECRET=hermes-webui-pro-secret-key-2024
+      - LOGIN_PASSWORD=hermes2024
+    restart: unless-stopped

@@ -1,22 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NCard, NGrid, NGi, NStatistic, NDataTable, NSpin } from 'naive-ui'
-import { fetchUsage } from '@/api/system'
+import { NGrid, NGi, NCard, NStatistic, NSpin, NEmpty } from 'naive-ui'
+import client from '@/api/client'
 
 const loading = ref(true)
 const usage = ref<any>({})
 
-const columns = [
-  { title: '模型', key: 'model', ellipsis: { tooltip: true } },
-  { title: '调用次数', key: 'calls', width: 100 },
-  { title: '输入 Tokens', key: 'inputTokens', width: 120 },
-  { title: '输出 Tokens', key: 'outputTokens', width: 120 },
-]
-
 async function loadUsage() {
-  loading.value = true
-  try { const { data } = await fetchUsage(); usage.value = data }
-  catch { } finally { loading.value = false }
+  try { usage.value = (await client.get('/api/usage')).data || {} } catch { } finally { loading.value = false }
 }
 
 onMounted(loadUsage)
@@ -24,25 +15,22 @@ onMounted(loadUsage)
 
 <template>
   <div class="page-container">
-    <div class="page-header"><h2>📊 用量统计</h2></div>
-    <div class="page-body">
-      <n-spin :show="loading">
-        <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-          <n-gi span="4 m:2 l:1"><n-card><n-statistic label="总调用" :value="usage.totalCalls || 0" /></n-card></n-gi>
-          <n-gi span="4 m:2 l:1"><n-card><n-statistic label="输入 Tokens" :value="usage.totalInputTokens || 0" /></n-card></n-gi>
-          <n-gi span="4 m:2 l:1"><n-card><n-statistic label="输出 Tokens" :value="usage.totalOutputTokens || 0" /></n-card></n-gi>
-          <n-gi span="4 m:2 l:1"><n-card><n-statistic label="估算费用" :value="'$' + (usage.estimatedCost || '0.00')" /></n-card></n-gi>
-        </n-grid>
-        <n-card title="模型用量明细" style="margin-top:16px" size="small">
-          <n-data-table :columns="columns" :data="usage.modelBreakdown || []" :bordered="false" size="small" />
-        </n-card>
-      </n-spin>
+    <div class="page-header"><h2>使用统计</h2></div>
+    <div class="page-body" v-if="!loading">
+      <n-grid :cols="3" :x-gap="16" responsive="screen" item-responsive>
+        <n-gi span="3 m:1"><n-card><n-statistic label="总请求" :value="usage.total_requests || 0" /></n-card></n-gi>
+        <n-gi span="3 m:1"><n-card><n-statistic label="总 Token" :value="usage.total_tokens || 0" /></n-card></n-gi>
+        <n-gi span="3 m:1"><n-card><n-statistic label="平均响应" :value="(usage.avg_response_time || 0) + 'ms'" /></n-card></n-gi>
+      </n-grid>
+      <n-empty v-if="!Object.keys(usage).length" description="暂无统计" style="margin-top:20px" />
     </div>
+    <div v-else class="loading-wrap"><n-spin size="large" /></div>
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped>
 .page-container { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; h2 { margin: 0; font-size: 18px; } }
+.page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
 .page-body { flex: 1; overflow-y: auto; padding: 24px; }
+.loading-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 </style>
