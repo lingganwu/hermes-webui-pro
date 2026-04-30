@@ -1,34 +1,28 @@
+"""
+Hermes WebUI Pro - FastAPI 后端
+"""
 import os
-import json
-import asyncio
-from pathlib import Path
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from auth import verify_password, create_token, verify_token
-from hermes_bridge import (
-    chat_send, get_memory_entries, write_memory_content,
-    get_skills_list, get_config, get_sessions_list, get_session_messages,
-    get_hermes_home,
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime, timedelta
+import jwt
+import json
+
+from hermes_client import (
+    get_health, get_gateway_status, get_model_config, get_providers,
+    get_cron_jobs, get_skills, get_memories, get_memory_content,
+    get_sessions, get_config, update_config, get_logs, get_log_content,
+    get_usage, get_state_db_stats, get_workflows, get_all_models,
+    read_yaml_config
 )
-import psutil
 
-# ── Auth dependency ──
-async def require_auth(request: Request):
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(401, "Missing token")
-    token = auth[7:]
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(401, "Invalid or expired token")
-    return payload
+app = FastAPI(title="Hermes WebUI Pro", version="2.1.0")
 
-# ── App ──
-app = FastAPI(title="Hermes WebUI Pro", version="2.0.0")
-
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,227 +31,243 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Auth routes ──
+# JWT 配置
+JWT_SECRET = os.getenv("JWT_SECRET", "hermes-webui-pro-secret-key-2024")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 72
+LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "hermes2024")
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+
+class ConfigUpdateRequest(BaseModel):
+    updates: dict
+
+
+def create_token(data: dict) -> str:
+    expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
+    return jwt.encode({**data, "exp": expire}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verify_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def get_current_user(authorization: str = Depends(lambda: None)):
+    # 简化认证，从 header 获取 token
+    pass
+
+
+# ==================== 认证 ====================
+
 @app.post("/api/auth/login")
-async def login(request: Request):
-    body = await request.json()
-    password = body.get("password", "")
-    if not verify_password(password):
-        raise HTTPException(401, "密码错误")
-    token = create_token({"sub": "hermes-webui"})
-    return {"token": token, "expires_in": 86400}
+async def login(req: LoginRequest):
+    if req.password != LOGIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="密码错误")
+    token = create_token({"user": "admin"})
+    return {"token": token, "user": "admin"}
+
 
 @app.get("/api/auth/verify")
-async def verify_auth(payload=Depends(require_auth)):
-    return {"valid": True, "user": payload.get("sub")}
+async def verify_auth(token: str):
+    payload = verify_token(token)
+    return {"valid": True, "user": payload.get("user")}
 
-# ── Health / System ──
-@app.get("/api/health")
-async def health():
-    cpu = psutil.cpu_percent(interval=0.5)
-    mem = psutil.virtual_memory()
-    disk = psutil.disk_usage("/")
+
+# ==================== Dashboard ====================
+
+@app.get("/api/dashboard")
+async def get_dashboard(token: str):
+    verify_token(token)
     return {
-        "status": "ok",
-        "cpu": round(cpu, 1),
-        "memory": round(mem.percent, 1),
-        "disk": round(disk.percent, 1),
-        "uptime": _format_uptime(),
-        "hermes_home": str(get_hermes_home()),
+        "health": get_health(),
+        "gateway": get_gateway_status(),
+        "models": get_model_config(),
+        "jobs": get_cron_jobs(),
+        "skills_count": len(get_skills()),
+        "sessions_count": len(get_sessions()),
+        "memories_count": len(get_memories()),
     }
 
-@app.get("/api/metrics")
-async def metrics():
-    cpu = psutil.cpu_percent(interval=0.5)
-    mem = psutil.virtual_memory()
-    disk = psutil.disk_usage("/")
-    return {"cpu": round(cpu, 1), "memory": round(mem.percent, 1), "disk": round(disk.percent, 1)}
 
-def _format_uptime() -> str:
-    import time
-    uptime_s = time.time() - psutil.boot_time()
-    d = int(uptime_s // 86400)
-    h = int((uptime_s % 86400) // 3600)
-    m = int((uptime_s % 3600) // 60)
-    parts = []
-    if d: parts.append(f"{d}d")
-    if h: parts.append(f"{h}h")
-    parts.append(f"{m}m")
-    return " ".join(parts)
+# ==================== 健康状态 ====================
 
-# ── Chat ──
-@app.get("/api/sessions")
-async def list_sessions(payload=Depends(require_auth)):
-    return {"sessions": get_sessions_list()}
+@app.get("/api/health")
+async def health(token: str):
+    verify_token(token)
+    return get_health()
 
-@app.get("/api/sessions/{session_id}")
-async def get_session(session_id: str, payload=Depends(require_auth)):
-    return {"messages": get_session_messages(session_id)}
 
-@app.post("/api/chat")
-async def chat(request: Request, payload=Depends(require_auth)):
-    body = await request.json()
-    message = body.get("message", "")
-    model = body.get("model")
-    if not message:
-        raise HTTPException(400, "Message required")
-    response = await chat_send(message, model)
-    return {"response": response}
+# ==================== 网关状态 ====================
 
-# ── Memory ──
-@app.get("/api/memory")
-async def memory_list(payload=Depends(require_auth)):
-    return {"entries": get_memory_entries()}
+@app.get("/api/gateways")
+async def gateways(token: str):
+    verify_token(token)
+    return get_gateway_status()
 
-@app.put("/api/memory/{entry_id}")
-async def memory_update(entry_id: str, request: Request, payload=Depends(require_auth)):
-    body = await request.json()
-    content = body.get("content", "")
-    write_memory_content(content)
-    return {"success": True}
 
-@app.post("/api/memory")
-async def memory_create(request: Request, payload=Depends(require_auth)):
-    body = await request.json()
-    content = body.get("content", "")
-    # Append to SOUL.md
-    soul_path = get_hermes_home() / "SOUL.md"
-    existing = soul_path.read_text(encoding="utf-8") if soul_path.exists() else ""
-    new_content = existing + "\n\n" + content
-    write_memory_content(new_content)
-    return {"success": True}
+# ==================== 模型 ====================
 
-# ── Jobs ──
-@app.get("/api/jobs")
-async def list_jobs(payload=Depends(require_auth)):
-    jobs = []
-    return {"jobs": jobs}
-
-@app.post("/api/jobs/{job_id}/run")
-async def run_job(job_id: str, payload=Depends(require_auth)):
-    return {"success": True, "output": "Job triggered"}
-
-@app.post("/api/jobs/{job_id}/toggle")
-async def toggle_job(job_id: str, request: Request, payload=Depends(require_auth)):
-    body = await request.json()
-    action = "resume" if body.get("enabled") else "pause"
-    return {"success": True}
-
-# ── Models ──
 @app.get("/api/models")
-async def list_models(payload=Depends(require_auth)):
-    config = get_config()
-    model_info = config.get("model", {})
-    models = [{"id": model_info.get("default", "unknown"), "name": model_info.get("default", "unknown"), "provider": model_info.get("provider", ""), "tier": "active"}]
-    return {"models": models}
+async def models(token: str):
+    verify_token(token)
+    return get_all_models()
 
-# ── Skills ──
+
+@app.get("/api/models/config")
+async def models_config(token: str):
+    verify_token(token)
+    return get_model_config()
+
+
+@app.get("/api/providers")
+async def providers(token: str):
+    verify_token(token)
+    return get_providers()
+
+
+# ==================== 定时任务 ====================
+
+@app.get("/api/jobs")
+async def jobs(token: str):
+    verify_token(token)
+    return {"jobs": get_cron_jobs()}
+
+
+# ==================== 技能 ====================
+
 @app.get("/api/skills")
-async def list_skills(payload=Depends(require_auth)):
-    return {"skills": get_skills_list()}
+async def skills(token: str):
+    verify_token(token)
+    return {"skills": get_skills()}
 
-# ── Config ──
+
+# ==================== 记忆 ====================
+
+@app.get("/api/memory")
+async def memory(token: str):
+    verify_token(token)
+    return {"memories": get_memories()}
+
+
+@app.get("/api/memory/{name}")
+async def memory_content(name: str, token: str):
+    verify_token(token)
+    content = get_memory_content(name)
+    if not content:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return {"name": name, "content": content}
+
+
+# ==================== 会话 ====================
+
+@app.get("/api/sessions")
+async def sessions(token: str, limit: int = 50):
+    verify_token(token)
+    return {"sessions": get_sessions(limit)}
+
+
+# ==================== 配置 ====================
+
 @app.get("/api/config")
-async def config_get(payload=Depends(require_auth)):
+async def config(token: str):
+    verify_token(token)
     return get_config()
 
+
 @app.put("/api/config")
-async def config_update(request: Request, payload=Depends(require_auth)):
-    import yaml
-    body = await request.json()
-    config_path = get_hermes_home() / "config.yaml"
-    current = get_config()
-    current.update(body)
-    config_path.write_text(yaml.dump(current, allow_unicode=True), encoding="utf-8")
-    return {"success": True}
+async def update_config_api(req: ConfigUpdateRequest, token: str):
+    verify_token(token)
+    return update_config(req.updates)
 
-# ── Logs ──
+
+# ==================== 日志 ====================
+
 @app.get("/api/logs")
-async def get_logs(payload=Depends(require_auth)):
-    log_path = get_hermes_home() / "logs" / "gateway.log"
-    lines = []
-    if log_path.exists():
-        try:
-            all_lines = log_path.read_text(encoding="utf-8").split("\n")
-            lines = all_lines[-500:]  # Last 500 lines
-        except: pass
-    return {"lines": lines}
+async def logs(token: str):
+    verify_token(token)
+    return {"logs": get_logs()}
 
-# ── Usage ──
+
+@app.get("/api/logs/{name}")
+async def log_content(name: str, token: str, lines: int = 100):
+    verify_token(token)
+    content = get_log_content(name, lines)
+    return {"name": name, "content": content}
+
+
+# ==================== 使用统计 ====================
+
 @app.get("/api/usage")
-async def get_usage(payload=Depends(require_auth)):
-    # Aggregate from session files
-    sessions = get_sessions_list()
-    total_input = sum(s.get("inputTokens", 0) for s in sessions)
-    total_output = sum(s.get("outputTokens", 0) for s in sessions)
-    return {
-        "totalCalls": len(sessions),
-        "totalInputTokens": total_input,
-        "totalOutputTokens": total_output,
-        "estimatedCost": f"{(total_input * 0.000003 + total_output * 0.000015):.2f}",
-        "modelBreakdown": [],
-    }
+async def usage(token: str):
+    verify_token(token)
+    return get_usage()
 
-# ── Gateways ──
-@app.get("/api/gateways")
-async def list_gateways(payload=Depends(require_auth)):
-    gateways = [{"name": "telegram", "connected": True, "platform": "telegram"}]
-    return {"gateways": gateways}
 
-# ── WebSocket: Chat streaming ──
+# ==================== 工作流 ====================
+
+@app.get("/api/workflows")
+async def workflows(token: str):
+    verify_token(token)
+    return {"workflows": get_workflows()}
+
+
+# ==================== 聊天 ====================
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest, token: str):
+    verify_token(token)
+    # 聊天功能通过 WebSocket 实现，这里返回提示
+    return {"message": "请使用 WebSocket 连接进行实时聊天", "ws_url": "/ws/chat"}
+
+
+# ==================== WebSocket 聊天 ====================
+
 @app.websocket("/ws/chat")
-async def ws_chat(websocket: WebSocket):
+async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
-            message = msg.get("message", "")
-            model = msg.get("model")
-            if message:
-                response = await chat_send(message, model)
-                await websocket.send_text(json.dumps({"type": "response", "content": response}))
+            
+            # 简单回显，实际应该调用 Hermes Agent
+            response = {
+                "type": "message",
+                "content": f"收到消息: {msg.get('message', '')}",
+                "timestamp": datetime.now().isoformat(),
+            }
+            await websocket.send_text(json.dumps(response))
     except WebSocketDisconnect:
         pass
 
-# ── WebSocket: Terminal ──
-@app.websocket("/ws/terminal")
-async def ws_terminal(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            command = msg.get("command", "")
-            if command:
-                proc = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-                output = stdout.decode("utf-8", errors="replace")
-                if stderr:
-                    output += stderr.decode("utf-8", errors="replace")
-                await websocket.send_text(output)
-    except WebSocketDisconnect:
-        pass
-    except asyncio.TimeoutError:
-        await websocket.send_text("Command timed out")
 
-# ── Serve static files (production) ──
-client_dist = Path(__file__).parent.parent / "client" / "dist"
-if client_dist.exists():
-    app.mount("/assets", StaticFiles(directory=str(client_dist / "assets")), name="assets")
+# ==================== 静态文件 ====================
 
+# 挂载前端静态文件
+static_dir = "/app/static"
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = client_dist / full_path
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
-        return FileResponse(str(client_dist / "index.html"))
+        # 所有非 API 路径返回 index.html
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(static_dir, "index.html"))
+
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8090)
