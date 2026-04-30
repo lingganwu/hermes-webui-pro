@@ -1,153 +1,51 @@
-/* Hermes WebUI Pro - 惊艳暗色主题 */
+/* Hermes WebUI Pro */
 
 :root {
   --primary-color: #6366f1;
   --primary-hover: #818cf8;
-  --primary-glow: rgba(99, 102, 241, 0.3);
   --success-color: #22c55e;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
-  
-  --body-color: #0a0a1a;
-  --sidebar-bg: linear-gradient(180deg, #0f0f23 0%, #16162a 100%);
-  --card-bg: rgba(22, 22, 42, 0.8);
+  --body-color: #0f0f23;
+  --sidebar-bg: #0f0f23;
+  --card-bg: #16162a;
   --card-border: rgba(99, 102, 241, 0.15);
   --border-color: rgba(99, 102, 241, 0.1);
-  --hover-color: rgba(99, 102, 241, 0.1);
-  --active-color: rgba(99, 102, 241, 0.15);
-  
+  --hover-color: rgba(99, 102, 241, 0.08);
   --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
 }
 
-/* Light theme */
 :root.light {
   --body-color: #f8fafc;
-  --sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-  --card-bg: #ffffff;
+  --sidebar-bg: #fff;
+  --card-bg: #fff;
   --card-border: #e2e8f0;
   --border-color: #e2e8f0;
   --hover-color: #f1f5f9;
-  --active-color: #e2e8f0;
-  
   --text-primary: #0f172a;
   --text-secondary: #64748b;
   --text-tertiary: #94a3b8;
 }
 
-/* Reset */
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--body-color); color: var(--text-primary); line-height: 1.6; -webkit-font-smoothing: antialiased; }
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--body-color);
-  color: var(--text-primary);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
+.n-card { --n-border-radius: 12px !important; border: 1px solid var(--border-color) !important; background: var(--card-bg) !important; }
+.n-button { --n-border-radius: 8px !important; }
+.n-input { --n-border-radius: 8px !important; }
+.n-tag { --n-border-radius: 6px !important; }
 
-/* 玻璃态效果 */
-.glass {
-  background: rgba(22, 22, 42, 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--card-border);
-}
+.dark { --n-color: var(--card-bg) !important; --n-color-modal: var(--card-bg) !important; --n-color-popover: var(--card-bg) !important; --n-border-color: var(--border-color) !important; --n-text-color: var(--text-primary) !important; --n-text-color-secondary: var(--text-secondary) !important; }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+.app-layout { display: flex; height: 100vh; overflow: hidden; background: var(--body-color); }
+.main-content { flex: 1; overflow: hidden; background: var(--body-color); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--primary-color);
-  border-radius: 3px;
-  opacity: 0.5;
-}
-
-/* Naive UI 暗色覆盖 */
-.dark {
-  --n-color: var(--card-bg) !important;
-  --n-color-modal: var(--card-bg) !important;
-  --n-color-popover: var(--card-bg) !important;
-  --n-border-color: var(--card-border) !important;
-  --n-text-color: var(--text-primary) !important;
-  --n-text-color-secondary: var(--text-secondary) !important;
-}
-
-/* 卡片样式 */
-.n-card {
-  --n-border-radius: 14px !important;
-  border: 1px solid var(--card-border) !important;
-  background: var(--card-bg) !important;
-  backdrop-filter: blur(10px);
-}
-
-/* 按钮样式 */
-.n-button {
-  --n-border-radius: 10px !important;
-}
-
-.n-button--primary-type {
-  box-shadow: 0 4px 14px var(--primary-glow);
-}
-
-/* 输入框样式 */
-.n-input {
-  --n-border-radius: 10px !important;
-}
-
-/* 标签样式 */
-.n-tag {
-  --n-border-radius: 8px !important;
-}
-
-/* 过渡动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-/* 响应式 */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 64px !important;
-    
-    .logo-text, .n-menu-item-content__label, .sidebar-footer .n-tooltip {
-      display: none !important;
-    }
-    
-    .sidebar-header {
-      padding: 16px 12px;
-      justify-content: center;
-    }
-    
-    .logo-container {
-      justify-content: center;
-    }
-  }
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }

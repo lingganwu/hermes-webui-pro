@@ -5,15 +5,8 @@ import router from './router'
 import App from './App.vue'
 import './styles/global.scss'
 
-// 默认暗色主题
-const savedTheme = localStorage.getItem('hermes_theme') || 'dark'
-localStorage.setItem('hermes_theme', savedTheme)
-if (savedTheme === 'dark') {
+if (localStorage.getItem('hermes_theme') !== 'light') {
   document.documentElement.classList.add('dark')
 }
 
-const app = createApp(App)
-app.use(createPinia())
-app.use(router)
-app.use(naive)
-app.mount('#app')
+createApp(App).use(createPinia()).use(router).use(naive).mount('#app')
