@@ -10,10 +10,9 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install Node.js for hermes CLI compatibility
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl procps && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps
@@ -26,10 +25,8 @@ COPY server/ ./server/
 # Copy built frontend
 COPY --from=frontend-build /app/client/dist ./client/dist
 
-# Create hermes home directory
-RUN mkdir -p /root/.hermes/memory /root/.hermes/skills /root/.hermes/sessions /root/.hermes/logs
-
-ENV HERMES_HOME=/root/.hermes
+ENV HERMES_HOME=/opt/data
+ENV HERMES_API_URL=http://host.docker.internal:8642
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 

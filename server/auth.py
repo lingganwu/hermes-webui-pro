@@ -2,28 +2,22 @@ import os
 import time
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
-from passlib.hash import bcrypt
 
 SECRET_KEY = os.environ.get("HERMES_JWT_SECRET", "hermes-webui-secret-key-change-in-production")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-_password_hash = None
+# Simple password comparison (no bcrypt to avoid version issues)
+_stored_password = None
 
-def get_password_hash() -> str | None:
-    global _password_hash
-    pw = os.environ.get("HERMES_WEB_PASSWORD", "")
-    if not pw:
-        return None
-    if _password_hash is None:
-        _password_hash = bcrypt.hash(pw)
-    return _password_hash
+def _get_password() -> str:
+    return os.environ.get("HERMES_WEB_PASSWORD", "")
 
 def verify_password(plain: str) -> bool:
-    hashed = get_password_hash()
-    if not hashed:
+    pw = _get_password()
+    if not pw:
         return True  # No password set = open access
-    return bcrypt.verify(plain, hashed)
+    return plain == pw
 
 def create_token(data: dict) -> str:
     to_encode = data.copy()
