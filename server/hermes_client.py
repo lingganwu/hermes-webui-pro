@@ -13,7 +13,6 @@ HERMES_DATA = Path(os.getenv("HERMES_DATA_PATH", "/hermes-data"))
 
 
 def read_yaml_config() -> dict:
-    """读取 config.yaml"""
     cfg_path = HERMES_DATA / "config.yaml"
     if cfg_path.exists():
         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -22,14 +21,12 @@ def read_yaml_config() -> dict:
 
 
 def write_yaml_config(data: dict):
-    """写入 config.yaml"""
     cfg_path = HERMES_DATA / "config.yaml"
     with open(cfg_path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 
 
 def read_json(path: Path) -> Any:
-    """读取 JSON 文件"""
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -37,7 +34,6 @@ def read_json(path: Path) -> Any:
 
 
 def get_health() -> dict:
-    """获取系统健康状态"""
     import psutil
     disk = psutil.disk_usage("/")
     return {
@@ -52,19 +48,16 @@ def get_health() -> dict:
             "used": disk.used,
             "percent": disk.percent,
         },
-        "hermes_data": str(HERMES_DATA),
         "hermes_exists": HERMES_DATA.exists(),
     }
 
 
 def get_gateway_status() -> dict:
-    """获取网关状态"""
     state = read_json(HERMES_DATA / "gateway_state.json")
     if state:
         return {
             "state": state.get("gateway_state", "unknown"),
             "pid": state.get("pid"),
-            "start_time": state.get("start_time"),
             "platforms": state.get("platforms", {}),
             "updated_at": state.get("updated_at"),
             "active_agents": state.get("active_agents", 0),
@@ -73,34 +66,26 @@ def get_gateway_status() -> dict:
 
 
 def get_model_config() -> dict:
-    """获取模型配置"""
     cfg = read_yaml_config()
     model = cfg.get("model", {})
-    providers = cfg.get("providers", {})
     fallback = cfg.get("fallback_providers", [])
-    
-    # 读取 free_models.json 获取可用模型列表
     free_models = read_json(HERMES_DATA / "free_models.json") or {}
     
     return {
         "default_model": model.get("default", "unknown"),
         "default_provider": model.get("provider", "unknown"),
         "base_url": model.get("base_url", ""),
-        "providers": providers,
         "fallback_providers": fallback,
         "free_models_count": len(free_models.get("models", [])) if isinstance(free_models, dict) else 0,
     }
 
 
 def get_providers() -> List[dict]:
-    """获取所有 Provider"""
     cfg = read_yaml_config()
-    providers = cfg.get("providers", {})
+    model = cfg.get("model", {})
     fallback = cfg.get("fallback_providers", [])
     
     result = []
-    # 主 provider
-    model = cfg.get("model", {})
     if model.get("provider"):
         result.append({
             "name": model["provider"],
@@ -109,7 +94,6 @@ def get_providers() -> List[dict]:
             "base_url": model.get("base_url", ""),
         })
     
-    # fallback providers
     for fb in fallback:
         result.append({
             "name": fb.get("provider", "unknown"),
@@ -122,7 +106,6 @@ def get_providers() -> List[dict]:
 
 
 def get_cron_jobs() -> List[dict]:
-    """获取定时任务"""
     jobs_data = read_json(HERMES_DATA / "cron" / "jobs.json")
     if jobs_data and "jobs" in jobs_data:
         return jobs_data["jobs"]
@@ -130,7 +113,6 @@ def get_cron_jobs() -> List[dict]:
 
 
 def get_skills() -> List[dict]:
-    """获取技能列表"""
     skills_dir = HERMES_DATA / "skills"
     cfg = read_yaml_config()
     disabled = cfg.get("skills", {}).get("disabled", [])
@@ -146,7 +128,6 @@ def get_skills() -> List[dict]:
                 skill_md = skill_dir / "SKILL.md"
                 if skill_md.exists():
                     content = skill_md.read_text(encoding="utf-8", errors="ignore")
-                    # 提取描述
                     desc = ""
                     for line in content.split("\n"):
                         if line.strip() and not line.startswith("#") and not line.startswith("---"):
@@ -162,7 +143,6 @@ def get_skills() -> List[dict]:
 
 
 def get_memories() -> List[dict]:
-    """获取记忆列表"""
     mem_dir = HERMES_DATA / "memories"
     result = []
     if mem_dir.exists():
@@ -179,44 +159,59 @@ def get_memories() -> List[dict]:
 
 
 def get_memory_content(name: str) -> str:
-    """获取记忆内容"""
     mem_file = HERMES_DATA / "memories" / name
     if mem_file.exists():
         return mem_file.read_text(encoding="utf-8", errors="ignore")
     return ""
 
 
-def get_sessions(limit: int = 50) -> List[dict]:
-    """获取会话列表"""
+def get_sessions(limit: int = 100) -> List[dict]:
+    """获取会话列表 - 兼容无 meta.json 的情况"""
     sessions_dir = HERMES_DATA / "sessions"
     result = []
     if sessions_dir.exists():
         sessions = sorted(sessions_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)
-        for s in sessions[:limit]:
-            if s.is_dir():
-                meta_file = s / "meta.json"
-                if meta_file.exists():
-                    meta = read_json(meta_file) or {}
+        count = 0
+        for s in sessions:
+            if count >= limit:
+                break
+            if not s.is_dir():
+                continue
+            
+            # 尝试读取 meta.json
+            meta_file = s / "meta.json"
+            if meta_file.exists():
+                try:
+                    meta = json.loads(meta_file.read_text(encoding="utf-8", errors="ignore"))
                     result.append({
                         "id": s.name,
-                        "title": meta.get("title", s.name),
+                        "title": meta.get("title", s.name[:8] + "..."),
                         "created_at": meta.get("created_at", ""),
                         "updated_at": meta.get("updated_at", ""),
                         "message_count": meta.get("message_count", 0),
                     })
-                else:
+                except:
                     result.append({
                         "id": s.name,
-                        "title": s.name,
-                        "created_at": "",
-                        "updated_at": "",
+                        "title": s.name[:8] + "...",
+                        "created_at": datetime.fromtimestamp(s.stat().st_ctime).isoformat(),
+                        "updated_at": datetime.fromtimestamp(s.stat().st_mtime).isoformat(),
                         "message_count": 0,
                     })
+            else:
+                # 没有 meta.json，使用目录信息
+                result.append({
+                    "id": s.name,
+                    "title": s.name[:12] + "...",
+                    "created_at": datetime.fromtimestamp(s.stat().st_ctime).isoformat(),
+                    "updated_at": datetime.fromtimestamp(s.stat().st_mtime).isoformat(),
+                    "message_count": 0,
+                })
+            count += 1
     return result
 
 
 def get_config() -> dict:
-    """获取完整配置"""
     cfg = read_yaml_config()
     return {
         "model": cfg.get("model", {}),
@@ -227,21 +222,18 @@ def get_config() -> dict:
         "browser": cfg.get("browser", {}),
         "checkpoints": cfg.get("checkpoints", {}),
         "compression": cfg.get("compression", {}),
-        "prompt_caching": cfg.get("prompt_caching", {}),
         "toolsets": cfg.get("toolsets", []),
     }
 
 
 def update_config(updates: dict) -> dict:
-    """更新配置"""
     cfg = read_yaml_config()
     cfg.update(updates)
     write_yaml_config(cfg)
     return cfg
 
 
-def get_logs(limit: int = 100) -> List[dict]:
-    """获取日志列表"""
+def get_logs(limit: int = 50) -> List[dict]:
     logs_dir = HERMES_DATA / "logs"
     result = []
     if logs_dir.exists():
@@ -256,7 +248,6 @@ def get_logs(limit: int = 100) -> List[dict]:
 
 
 def get_log_content(name: str, lines: int = 100) -> str:
-    """获取日志内容"""
     log_file = HERMES_DATA / "logs" / name
     if log_file.exists():
         content = log_file.read_text(encoding="utf-8", errors="ignore")
@@ -265,57 +256,23 @@ def get_log_content(name: str, lines: int = 100) -> str:
 
 
 def get_usage() -> dict:
-    """获取使用统计"""
     usage_file = HERMES_DATA / "model_usage.json"
-    usage = read_json(usage_file) or {}
-    return usage
-
-
-def get_state_db_stats() -> dict:
-    """从 state.db 获取统计信息"""
-    db_path = HERMES_DATA / "state.db"
-    if not db_path.exists():
-        return {}
-    
-    try:
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        
-        # 获取表列表
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        stats = {"tables": tables}
-        for table in tables:
-            try:
-                cursor.execute(f"SELECT COUNT(*) FROM [{table}]")
-                stats[f"{table}_count"] = cursor.fetchone()[0]
-            except:
-                pass
-        
-        conn.close()
-        return stats
-    except Exception as e:
-        return {"error": str(e)}
+    return read_json(usage_file) or {}
 
 
 def get_workflows() -> list:
-    """获取工作流"""
     wf = read_json(HERMES_DATA / "workflows.json")
     return wf if isinstance(wf, list) else []
 
 
-def get_all_models() -> List[dict]:
-    """获取所有可用模型"""
+def get_all_models() -> dict:
     free_models = read_json(HERMES_DATA / "free_models.json") or {}
     models = free_models.get("models", []) if isinstance(free_models, dict) else []
-    
-    # 添加当前配置的模型
     cfg = read_yaml_config()
     current = cfg.get("model", {})
     
     return {
         "current": current,
-        "free_models": models[:50],  # 限制返回数量
+        "free_models": models[:50],
         "total_free": len(models),
     }
